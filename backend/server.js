@@ -6,59 +6,105 @@ import mongoose from "mongoose";
 
 import scanRoutes from "./routes/scanRoutes.js";
 
-// Load environment variables
+// Load environment variables before using them.
 dotenv.config();
 
-// Use public DNS servers instead of the local router DNS
-dns.setServers([
-  "8.8.8.8",
-  "1.1.1.1",
-]);
+// Atlas uses SRV DNS records. These public resolvers help when the
+// local/router DNS resolver cannot resolve mongodb+srv addresses.
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
-
-const PORT = process.env.PORT || 5000;
+const PORT = Number(process.env.PORT) || 5000;
 
 // Middleware
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin(origin, callback) {
+      // Allow requests with no Origin header (curl/Postman/server-to-server).
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // During development, don't block the API because of a stale frontend URL.
+      if (process.env.NODE_ENV !== "production") {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS origin not allowed"));
+    },
   })
 );
 
 app.use(express.json({ limit: "1mb" }));
 
-// Health check
+// Health check — this endpoint must work even while MongoDB is connecting.
 app.get("/api", (req, res) => {
   res.json({
     success: true,
     message: "ScamShield Pay API is running",
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+  });
+});
+
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    server: "ok",
+    database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
   });
 });
 
 // Scan routes
 app.use("/api/scan", scanRoutes);
 
-// Start server after MongoDB connection
-const startServer = async () => {
-  try {
-    console.log("Connecting to MongoDB...");
+// Express JSON / route errors
+app.use((err, req, res, next) => {
+  console.error("API error:", err.message);
 
-    await mongoose.connect(process.env.MONGO_URI, {
-      serverSelectionTimeoutMS: 10000,
+  if (err.message === "CORS origin not allowed") {
+    return res.status(403).json({
+      success: false,
+      message: "Request origin is not allowed.",
     });
-
-    console.log("MongoDB connected successfully");
-
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  } catch (error) {
-    console.error("Server startup failed:");
-    console.error(error.message);
-
-    process.exit(1);
   }
+
+  return res.status(500).json({
+    success: false,
+    message: "Internal server error.",
+  });
+});
+
+const connectMongoDB = async () => {
+  if (!process.env.MONGO_URI) {
+    throw new Error("MONGO_URI is missing from backend/.env");
+  }
+
+  await mongoose.connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+    family: 4,
+  });
+
+  console.log("MongoDB connected successfully");
 };
 
-startServer();
+// Start HTTP server first so /api and /api/health remain available even
+// if MongoDB temporarily has a DNS/network problem.
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+
+  connectMongoDB().catch((error) => {
+    console.error("MongoDB connection failed:");
+    console.error(error.message);
+    console.error("Check MONGO_URI, Atlas Network Access, and internet/DNS connectivity.");
+  });
+});
