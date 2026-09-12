@@ -31,14 +31,28 @@ function Home() {
           <div className="hero-feature"><span>🔐</span>Privacy Focused</div>
           <div className="hero-feature"><span>🧠</span>Smart Detection</div>
         </div>
+      </section>
 
-        <button
-          type="button"
-          className="history-toggle"
-          onClick={() => setShowHistory((value) => !value)}
-        >
-          {showHistory ? "← Back to Scanner" : "🕒 View Scan History"}
-        </button>
+      <section className="history-action-section">
+        <div className="history-action-card">
+          <div className="history-action-icon">🛡️</div>
+          <div className="history-action-copy">
+            <span>SECURITY ACTIVITY</span>
+            <h2>{showHistory ? "Review Your Scan History" : "Your Security Dashboard"}</h2>
+            <p>
+              {showHistory
+                ? "Review your recent risk checks and detected security signals."
+                : "Track your recent scam checks and return to scanning anytime."}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="history-toggle"
+            onClick={() => setShowHistory((value) => !value)}
+          >
+            {showHistory ? "←  Back to Scanner" : "🕒  View Scan History"}
+          </button>
+        </div>
       </section>
 
       <section className="scanner-section">
