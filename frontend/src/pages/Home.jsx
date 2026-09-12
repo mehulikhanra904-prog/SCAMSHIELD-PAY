@@ -1,12 +1,68 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MessageScanner from "../components/MessageScanner";
 import RiskResult from "../components/RiskResult";
 import ScanHistory from "../components/ScanHistory";
 import ThreatProfile from "../components/ThreatProfile";
 
+const STORAGE_KEY = "scamshield_scan_history";
+const MAX_HISTORY = 10;
+
+function saveScanToHistory(result) {
+  if (!result) return;
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    const current = Array.isArray(saved) ? saved : [];
+    const entry = {
+      id: result._id || `${Date.now()}-${Math.random()}`,
+      scannedAt: new Date().toISOString(),
+      riskScore: Number(result.riskScore || 0),
+      riskLevel: result.riskLevel || "UNKNOWN",
+      category: result.category || "Suspicious Communication",
+      urlDetected: Boolean(result.urlAnalysis?.urls?.length),
+      impersonationDetected: Boolean(result.impersonation?.detected),
+      campaignDetected: Boolean(result.campaignAnalysis?.detected),
+      campaignId: result.campaignAnalysis?.campaignId || "",
+    };
+
+    if (current.some((item) => item.id === entry.id)) return;
+
+    const updated = [entry, ...current].slice(0, MAX_HISTORY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+
+    window.dispatchEvent(
+      new CustomEvent("scamshield-history-updated", {
+        detail: { history: updated },
+      })
+    );
+  } catch (error) {
+    console.error("Unable to save scan history:", error);
+  }
+}
+
 function Home() {
   const [result, setResult] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+
+  const handleResult = (newResult) => {
+    setResult(newResult);
+    saveScanToHistory(newResult);
+  };
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      if (Array.isArray(saved)) {
+        window.dispatchEvent(
+          new CustomEvent("scamshield-history-updated", {
+            detail: { history: saved },
+          })
+        );
+      }
+    } catch {
+      // Ignore malformed local history and allow the profile to start empty.
+    }
+  }, []);
 
   return (
     <main className="home">
@@ -58,10 +114,10 @@ function Home() {
 
       <section className="scanner-section">
         {showHistory ? (
-          <ScanHistory latestResult={result} />
+          <ScanHistory latestResult={null} />
         ) : (
           <>
-            <MessageScanner onResult={setResult} />
+            <MessageScanner onResult={handleResult} />
             <RiskResult result={result} onReset={() => setResult(null)} />
           </>
         )}
