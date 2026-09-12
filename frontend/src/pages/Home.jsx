@@ -2,6 +2,7 @@ import { useState } from "react";
 import MessageScanner from "../components/MessageScanner";
 import RiskResult from "../components/RiskResult";
 import ScanHistory from "../components/ScanHistory";
+import ThreatProfile from "../components/ThreatProfile";
 
 function Home() {
   const [result, setResult] = useState(null);
@@ -65,6 +66,8 @@ function Home() {
           </>
         )}
       </section>
+
+      <ThreatProfile />
 
       <section className="how-section">
         <div className="section-heading">
