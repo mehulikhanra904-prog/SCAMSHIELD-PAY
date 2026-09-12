@@ -3,16 +3,42 @@ import { useEffect, useMemo, useState } from "react";
 const STORAGE_KEY = "scamshield_scan_history";
 const MAX_HISTORY = 10;
 
+function readHistory() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    return Array.isArray(saved) ? saved : [];
+  } catch {
+    return [];
+  }
+}
+
+function notifyHistoryChanged(history) {
+  window.dispatchEvent(
+    new CustomEvent("scamshield-history-updated", {
+      detail: { history },
+    })
+  );
+}
+
 function ScanHistory({ latestResult }) {
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(readHistory);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      if (Array.isArray(saved)) setHistory(saved);
-    } catch {
-      setHistory([]);
-    }
+    const syncHistory = (event) => {
+      if (event?.detail?.history) {
+        setHistory(event.detail.history);
+      } else {
+        setHistory(readHistory());
+      }
+    };
+
+    window.addEventListener("scamshield-history-updated", syncHistory);
+    window.addEventListener("storage", syncHistory);
+
+    return () => {
+      window.removeEventListener("scamshield-history-updated", syncHistory);
+      window.removeEventListener("storage", syncHistory);
+    };
   }, []);
 
   useEffect(() => {
@@ -31,10 +57,12 @@ function ScanHistory({ latestResult }) {
     };
 
     setHistory((current) => {
-      if (entry.id && current[0]?.id === entry.id) return current;
+      const alreadyExists = current.some((item) => item.id === entry.id);
+      if (alreadyExists) return current;
+
       const updated = [entry, ...current].slice(0, MAX_HISTORY);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new Event("scamshield-history-updated"));
+      notifyHistoryChanged(updated);
       return updated;
     });
   }, [latestResult]);
@@ -51,7 +79,7 @@ function ScanHistory({ latestResult }) {
   const clearHistory = () => {
     localStorage.removeItem(STORAGE_KEY);
     setHistory([]);
-    window.dispatchEvent(new Event("scamshield-history-updated"));
+    notifyHistoryChanged([]);
   };
 
   const riskClass = (level) => String(level).toLowerCase().replace(/\s+/g, "-");
