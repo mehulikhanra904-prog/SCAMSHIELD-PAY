@@ -73,6 +73,79 @@ const knownOrganizations = [
   { name: "Google Pay", aliases: ["google pay", "gpay"], domains: ["google.com"] },
 ];
 
+const categoryDefinitions = [
+  {
+    name: "Bank / KYC Scam",
+    description: "Messages pretending to be banks or financial institutions and asking for KYC, account, or card action.",
+    advice: "Open your bank app or type the official bank website yourself. Never use the message link for KYC or account verification.",
+    keywords: ["kyc", "bank", "banking", "rbi", "credit card", "debit card"],
+    weight: 3,
+  },
+  {
+    name: "UPI / Payment Scam",
+    description: "Messages that pressure you to send money, pay a fee, approve a payment, or share payment details.",
+    advice: "Never approve an unexpected UPI collect request or send money to receive a refund, reward, or job.",
+    keywords: ["upi", "payment", "transfer", "send money", "pay", "collect request", "refund fee"],
+    weight: 3,
+  },
+  {
+    name: "Account Takeover Scam",
+    description: "Messages attempting to obtain passwords, OTPs, PINs, verification codes, or account login access.",
+    advice: "Never share OTPs, PINs, passwords, CVV, or verification codes. Open the official app directly if you need to secure the account.",
+    keywords: ["login", "log in", "password", "otp", "verify account", "verification code", "unlock account", "sign in", "cvv", "pin"],
+    weight: 3,
+  },
+  {
+    name: "Job Scam",
+    description: "Messages offering jobs or work opportunities that may require fees, deposits, or suspicious registration.",
+    advice: "Do not pay a recruitment or registration fee. Verify the employer and vacancy through its official careers page.",
+    keywords: ["job", "salary", "registration fee", "work from home", "vacancy", "hiring", "recruitment"],
+    weight: 3,
+  },
+  {
+    name: "Reward / Cashback Scam",
+    description: "Messages using prizes, cashback, gifts, lotteries, or bonuses to make you click or pay.",
+    advice: "Do not pay a fee to claim a prize or cashback. Verify promotions inside the official app or website.",
+    keywords: ["cashback", "reward", "prize", "winner", "lottery", "bonus", "gift", "free money", "congratulations"],
+    weight: 2,
+  },
+  {
+    name: "Investment Scam",
+    description: "Messages promising unusually high, guaranteed, or fast investment returns.",
+    advice: "Treat guaranteed returns as a warning sign. Verify the investment provider independently before sending money.",
+    keywords: ["investment", "crypto", "trading", "double your money", "guaranteed return", "profit", "returns"],
+    weight: 3,
+  },
+  {
+    name: "Delivery Scam",
+    description: "Messages claiming a parcel or courier problem and asking for payment, address, or account action.",
+    advice: "Check delivery status through the official courier or shopping app instead of the message link.",
+    keywords: ["delivery", "courier", "parcel", "package", "shipment", "address"],
+    weight: 2,
+  },
+  {
+    name: "Loan Scam",
+    description: "Messages offering instant loans or credit approval while requesting fees or sensitive information.",
+    advice: "Verify the lender through its official website and never pay an advance fee to unlock a loan.",
+    keywords: ["loan", "instant loan", "credit approval", "loan approval", "low interest"],
+    weight: 3,
+  },
+  {
+    name: "Tech Support Scam",
+    description: "Messages claiming your device or account has a technical problem and asking you to call, install software, or pay.",
+    advice: "Do not install remote-access software or call numbers from unexpected alerts. Use the vendor's official support page.",
+    keywords: ["technical support", "tech support", "virus detected", "computer infected", "remote access", "customer support"],
+    weight: 3,
+  },
+  {
+    name: "Government Impersonation Scam",
+    description: "Messages pretending to be a government authority and using penalties, legal threats, or document verification.",
+    advice: "Verify government notices through the official government website or known office contact details.",
+    keywords: ["government", "income tax", "police", "court", "ministry", "government notice", "legal notice"],
+    weight: 3,
+  },
+];
+
 function calculateRiskLevel(score) {
   if (score <= 25) return "Low";
   if (score <= 50) return "Moderate";
@@ -82,17 +155,44 @@ function calculateRiskLevel(score) {
 
 function detectCategory(message) {
   const text = message.toLowerCase();
+  const scores = categoryDefinitions.map((category) => {
+    const matchedKeywords = category.keywords.filter((keyword) => {
+      const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+    });
 
-  if (/\b(kyc|bank|banking|rbi|credit card|debit card)\b/.test(text)) return "Bank / KYC Scam";
-  if (/\b(upi|payment|pay|transfer|send money)\b/.test(text)) return "UPI / Payment Scam";
-  if (/\b(job|salary|registration fee|work from home|vacancy)\b/.test(text)) return "Job Scam";
-  if (/\b(cashback|reward|prize|winner|lottery|bonus|gift)\b/.test(text)) return "Reward / Cashback Scam";
-  if (/\b(investment|crypto|trading|double your money|guaranteed return)\b/.test(text)) return "Investment Scam";
-  if (/\b(delivery|courier|parcel|package)\b/.test(text)) return "Delivery Scam";
-  if (/\b(loan|instant loan|credit approval)\b/.test(text)) return "Loan Scam";
-  if (/\b(login|password|otp|verify account|unlock account|sign in)\b/.test(text)) return "Account Takeover Scam";
+    const score = matchedKeywords.reduce((total) => total + category.weight, 0);
+    return { category, matchedKeywords, score };
+  });
 
-  return "Suspicious Communication";
+  scores.sort((a, b) => b.score - a.score);
+  const best = scores[0];
+  const second = scores[1];
+
+  if (!best || best.score === 0) {
+    return {
+      name: "Suspicious Communication",
+      confidence: 0,
+      matchStrength: "No category match",
+      matchedKeywords: [],
+      description: "The message does not strongly match a known scam category.",
+      advice: "Still verify unexpected requests before clicking links, sharing information, or making payments.",
+    };
+  }
+
+  const rawConfidence = Math.min(95, 45 + best.score * 8 + Math.min(best.matchedKeywords.length, 3) * 5);
+  const confidence = Math.max(50, Math.round(rawConfidence));
+  const margin = best.score - (second?.score || 0);
+  const matchStrength = margin >= 4 ? "Strong match" : margin >= 2 ? "Moderate match" : "Overlapping signals";
+
+  return {
+    name: best.category.name,
+    confidence,
+    matchStrength,
+    matchedKeywords: best.matchedKeywords,
+    description: best.category.description,
+    advice: best.category.advice,
+  };
 }
 
 function extractUrls(message) {
@@ -370,20 +470,23 @@ export function analyzeMessage(message) {
     }
   }
 
+  const categoryAnalysis = detectCategory(message);
   const urlAnalysis = analyzeUrls(message);
   const impersonation = detectImpersonation(message, urlAnalysis.urls);
+
   score = Math.min(score + urlAnalysis.risk + impersonation.risk, 100);
 
   const riskLevel = calculateRiskLevel(score);
-  const category = detectCategory(message);
+  const category = categoryAnalysis.name;
+  const riskSummary = getRiskSummary(signals, urlAnalysis, impersonation, score);
   const recommendation = getRecommendation(riskLevel);
   const protectionActions = getProtectionActions(riskLevel, category);
-  const riskSummary = getRiskSummary(signals, urlAnalysis, impersonation, score);
 
   return {
     riskScore: score,
     riskLevel,
     category,
+    categoryAnalysis,
     signals,
     evidence: {
       textSignals: signals.length,
