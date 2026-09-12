@@ -22,6 +22,66 @@ function RiskResult({ result, onReset }) {
   const hasImpersonation = Boolean(impersonation?.detected && impersonation?.count);
   const categoryAnalysis = result.categoryAnalysis;
 
+  const categoryProtection = {
+    "Bank / KYC Scam": {
+      do: [
+        "Open your bank app directly instead of using the message link.",
+        "Verify KYC status through the bank's official website or app.",
+      ],
+      dont: ["Do not share OTP, PIN, CVV, card details, or passwords."],
+    },
+    "UPI / Payment Scam": {
+      do: [
+        "Check the payment request inside your official UPI app.",
+        "Contact the recipient or business using a trusted contact method.",
+      ],
+      dont: ["Do not approve an unexpected collect request or send money to receive money."],
+    },
+    "Account Takeover Scam": {
+      do: [
+        "Open the official app directly and review recent account activity.",
+        "Change your password through the official service if you suspect compromise.",
+      ],
+      dont: ["Never share OTPs, PINs, passwords, CVV, or verification codes."],
+    },
+    "Job Scam": {
+      do: ["Verify the employer and vacancy through its official careers page."],
+      dont: ["Never pay a recruitment, registration, training, or document fee to get a job."],
+    },
+    "Reward / Cashback Scam": {
+      do: ["Check promotions inside the official app or website."],
+      dont: ["Do not pay a fee or provide banking credentials to claim a reward or cashback."],
+    },
+    "Investment Scam": {
+      do: ["Verify the investment provider independently before transferring any money."],
+      dont: ["Do not trust guaranteed, unusually high, or pressure-based returns."],
+    },
+    "Delivery Scam": {
+      do: ["Check the parcel status through the official courier or shopping app."],
+      dont: ["Do not pay an unexpected delivery fee through a message link."],
+    },
+    "Loan Scam": {
+      do: ["Verify the lender through its official website and trusted channels."],
+      dont: ["Do not pay an advance fee to unlock or approve a loan."],
+    },
+    "Tech Support Scam": {
+      do: ["Use the vendor's official support page if you need technical help."],
+      dont: ["Do not install remote-access software or call an unexpected support number."],
+    },
+    "Government Impersonation Scam": {
+      do: ["Verify notices through the official government website or known office contact details."],
+      dont: ["Do not pay penalties or share documents because of an unverified message."],
+    },
+  };
+
+  const defaultProtection = {
+    do: ["Verify the sender through an independent, trusted channel."],
+    dont: ["Do not click unexpected links, share sensitive information, or send money."],
+  };
+
+  const protection = categoryProtection[result.category] || defaultProtection;
+  const highRisk = ["High", "Critical"].includes(result.riskLevel);
+
   return (
     <div className="result-card">
       <div className="result-header">
@@ -93,6 +153,38 @@ function RiskResult({ result, onReset }) {
           </div>
         </div>
       )}
+
+      {/* PROTECTION MODE */}
+      <div className="recommendation" style={{ marginTop: "16px" }}>
+        <div className="recommendation-icon">🛡️</div>
+        <div style={{ width: "100%" }}>
+          <span className="small-label">PROTECTION MODE</span>
+          <h3>{highRisk ? "Pause before you act" : "Verify before you act"}</h3>
+          <p>
+            {highRisk
+              ? "This result is high risk. Treat the message as unsafe until you independently verify it."
+              : "Use these checks before interacting with the sender, link, or payment request."}
+          </p>
+
+          <div style={{ marginTop: "12px" }}>
+            <strong>✅ DO</strong>
+            {protection.do.map((action, index) => (
+              <p key={`do-${index}`} style={{ margin: "6px 0 0" }}>
+                • {action}
+              </p>
+            ))}
+          </div>
+
+          <div style={{ marginTop: "12px" }}>
+            <strong>🚫 DON'T</strong>
+            {protection.dont.map((action, index) => (
+              <p key={`dont-${index}`} style={{ margin: "6px 0 0" }}>
+                • {action}
+              </p>
+            ))}
+          </div>
+        </div>
+      </div>
 
       {/* IMPERSONATION DETECTION */}
       {hasImpersonation && (
