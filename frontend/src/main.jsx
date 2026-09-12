@@ -5,6 +5,7 @@ import "./App.css";
 import "./history.css";
 import "./threat-profile.css";
 import "./campaign-detection.css";
+import "./threat-intelligence.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
