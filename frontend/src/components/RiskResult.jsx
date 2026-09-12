@@ -18,6 +18,8 @@ function RiskResult({ result, onReset }) {
   const riskClass = result.riskLevel.toLowerCase();
   const urlAnalysis = result.urlAnalysis;
   const hasUrls = Boolean(urlAnalysis?.found && urlAnalysis?.count);
+  const impersonation = result.impersonation;
+  const hasImpersonation = Boolean(impersonation?.detected && impersonation?.count);
 
   return (
     <div className="result-card">
@@ -62,6 +64,45 @@ function RiskResult({ result, onReset }) {
           <strong>{result.category}</strong>
         </div>
       </div>
+
+      {/* IMPERSONATION DETECTION */}
+      {hasImpersonation && (
+        <div className="impersonation-box">
+          <div className="section-title-row">
+            <div>
+              <span className="small-label">IMPERSONATION DETECTION</span>
+              <h3>Claimed organization vs actual domain</h3>
+            </div>
+            <span className="impersonation-risk-badge">
+              +{impersonation.risk} risk
+            </span>
+          </div>
+
+          <div className="impersonation-warning">
+            ⚠️ Possible brand impersonation detected
+          </div>
+
+          <div className="impersonation-list">
+            {impersonation.matches.map((match, index) => (
+              <div className="impersonation-item" key={index}>
+                <div className="impersonation-row">
+                  <span>Claimed organization</span>
+                  <strong>{match.claimed}</strong>
+                </div>
+                <div className="impersonation-row">
+                  <span>Actual domain</span>
+                  <strong>{match.domain}</strong>
+                </div>
+                <div className="impersonation-row">
+                  <span>Recognized official domain</span>
+                  <strong>{match.officialDomains.join(" or ")}</strong>
+                </div>
+                <p>{match.explanation}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* URL INTELLIGENCE */}
       {hasUrls && (
@@ -119,7 +160,7 @@ function RiskResult({ result, onReset }) {
             <h3>Why was this flagged?</h3>
           </div>
           <span className="signal-count">
-            {result.signals?.length || 0} signals
+            {result.evidence?.totalSignals ?? result.signals?.length ?? 0} signals
           </span>
         </div>
 
