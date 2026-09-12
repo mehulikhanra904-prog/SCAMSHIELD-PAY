@@ -20,6 +20,7 @@ function RiskResult({ result, onReset }) {
   const hasUrls = Boolean(urlAnalysis?.found && urlAnalysis?.count);
   const impersonation = result.impersonation;
   const hasImpersonation = Boolean(impersonation?.detected && impersonation?.count);
+  const categoryAnalysis = result.categoryAnalysis;
 
   return (
     <div className="result-card">
@@ -62,8 +63,36 @@ function RiskResult({ result, onReset }) {
         <div>
           <span>DETECTED CATEGORY</span>
           <strong>{result.category}</strong>
+          {categoryAnalysis && (
+            <>
+              <div style={{ marginTop: "8px" }}>
+                <span>RULE-BASED MATCH STRENGTH</span>
+                <strong>
+                  {categoryAnalysis.matchStrength} · {categoryAnalysis.confidence}%
+                </strong>
+              </div>
+              {categoryAnalysis.matchedKeywords?.length > 0 && (
+                <div style={{ marginTop: "8px" }}>
+                  <span>MATCHED EVIDENCE</span>
+                  <strong>{categoryAnalysis.matchedKeywords.join(", ")}</strong>
+                </div>
+              )}
+              <p style={{ marginTop: "8px" }}>{categoryAnalysis.description}</p>
+            </>
+          )}
         </div>
       </div>
+
+      {categoryAnalysis?.advice && (
+        <div className="recommendation" style={{ marginTop: "16px" }}>
+          <div className="recommendation-icon">🎯</div>
+          <div>
+            <span className="small-label">CATEGORY-SPECIFIC PROTECTION</span>
+            <h3>What should you do?</h3>
+            <p>{categoryAnalysis.advice}</p>
+          </div>
+        </div>
+      )}
 
       {/* IMPERSONATION DETECTION */}
       {hasImpersonation && (
