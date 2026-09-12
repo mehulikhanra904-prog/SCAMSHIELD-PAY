@@ -57,6 +57,22 @@ const patterns = [
   },
 ];
 
+const knownOrganizations = [
+  { name: "State Bank of India", aliases: ["sbi", "state bank of india"], domains: ["sbi.co.in", "onlinesbi.sbi"] },
+  { name: "HDFC Bank", aliases: ["hdfc", "hdfc bank"], domains: ["hdfcbank.com"] },
+  { name: "ICICI Bank", aliases: ["icici", "icici bank"], domains: ["icicibank.com"] },
+  { name: "Axis Bank", aliases: ["axis", "axis bank"], domains: ["axisbank.com"] },
+  { name: "Punjab National Bank", aliases: ["pnb", "punjab national bank"], domains: ["pnbindia.in"] },
+  { name: "RBI", aliases: ["rbi", "reserve bank of india"], domains: ["rbi.org.in"] },
+  { name: "Google", aliases: ["google"], domains: ["google.com"] },
+  { name: "Microsoft", aliases: ["microsoft"], domains: ["microsoft.com"] },
+  { name: "Amazon", aliases: ["amazon"], domains: ["amazon.in", "amazon.com"] },
+  { name: "Flipkart", aliases: ["flipkart"], domains: ["flipkart.com"] },
+  { name: "Paytm", aliases: ["paytm"], domains: ["paytm.com"] },
+  { name: "PhonePe", aliases: ["phonepe"], domains: ["phonepe.com"] },
+  { name: "Google Pay", aliases: ["google pay", "gpay"], domains: ["google.com"] },
+];
+
 function calculateRiskLevel(score) {
   if (score <= 25) return "Low";
   if (score <= 50) return "Moderate";
@@ -233,6 +249,63 @@ function analyzeUrls(message) {
   };
 }
 
+function getBaseDomain(hostname) {
+  const clean = hostname.toLowerCase().replace(/^www\./, "");
+  const parts = clean.split(".").filter(Boolean);
+  if (parts.length < 2) return clean;
+  return parts.slice(-2).join(".");
+}
+
+function detectImpersonation(message, urls) {
+  const text = message.toLowerCase();
+  const matches = [];
+
+  for (const organization of knownOrganizations) {
+    const mentioned = organization.aliases.some((alias) => {
+      const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+    });
+
+    if (!mentioned) continue;
+
+    for (const url of urls) {
+      try {
+        const parsed = new URL(url.startsWith("www.") ? `https://${url}` : url);
+        const baseDomain = getBaseDomain(parsed.hostname);
+        const official = organization.domains.includes(baseDomain);
+
+        if (!official) {
+          matches.push({
+            organization: organization.name,
+            claimed: organization.name,
+            domain: parsed.hostname,
+            officialDomains: organization.domains,
+            points: 25,
+            explanation: `The message mentions ${organization.name}, but the link uses ${parsed.hostname} instead of a recognized official domain. This can indicate impersonation.`,
+          });
+        }
+      } catch {
+        // URL parsing is already handled by URL intelligence.
+      }
+    }
+  }
+
+  const uniqueMatches = matches.filter(
+    (match, index, list) =>
+      index === list.findIndex(
+        (item) =>
+          item.organization === match.organization && item.domain === match.domain
+      )
+  );
+
+  return {
+    detected: uniqueMatches.length > 0,
+    count: uniqueMatches.length,
+    matches: uniqueMatches,
+    risk: Math.min(uniqueMatches.reduce((sum, item) => sum + item.points, 0), 50),
+  };
+}
+
 function getRecommendation(riskLevel) {
   switch (riskLevel) {
     case "Critical":
@@ -264,16 +337,19 @@ function getProtectionActions(riskLevel, category) {
   return actions;
 }
 
-function getRiskSummary(signals, urlAnalysis, score) {
-  const totalSignals = signals.length + urlAnalysis.indicators.length;
+function getRiskSummary(signals, urlAnalysis, impersonation, score) {
+  const totalSignals = signals.length + urlAnalysis.indicators.length + impersonation.matches.length;
 
   if (totalSignals === 0) {
     return "No major measurable scam indicators were detected in this message.";
   }
 
-  const strongestSignal = [...signals, ...urlAnalysis.indicators].sort(
-    (a, b) => b.points - a.points
-  )[0];
+  const evidence = [
+    ...signals,
+    ...urlAnalysis.indicators,
+    ...impersonation.matches.map((item) => ({ name: `${item.organization} impersonation`, points: item.points })),
+  ];
+  const strongestSignal = evidence.sort((a, b) => b.points - a.points)[0];
 
   return `Detected ${totalSignals} measurable warning signal(s). The strongest indicator is ${strongestSignal.name} (+${strongestSignal.points}). Evidence contributed to a risk score of ${score}/100.`;
 }
@@ -295,13 +371,14 @@ export function analyzeMessage(message) {
   }
 
   const urlAnalysis = analyzeUrls(message);
-  score = Math.min(score + urlAnalysis.risk, 100);
+  const impersonation = detectImpersonation(message, urlAnalysis.urls);
+  score = Math.min(score + urlAnalysis.risk + impersonation.risk, 100);
 
   const riskLevel = calculateRiskLevel(score);
   const category = detectCategory(message);
   const recommendation = getRecommendation(riskLevel);
   const protectionActions = getProtectionActions(riskLevel, category);
-  const riskSummary = getRiskSummary(signals, urlAnalysis, score);
+  const riskSummary = getRiskSummary(signals, urlAnalysis, impersonation, score);
 
   return {
     riskScore: score,
@@ -311,9 +388,11 @@ export function analyzeMessage(message) {
     evidence: {
       textSignals: signals.length,
       urlIndicators: urlAnalysis.indicators.length,
-      totalSignals: signals.length + urlAnalysis.indicators.length,
+      impersonationMatches: impersonation.matches.length,
+      totalSignals: signals.length + urlAnalysis.indicators.length + impersonation.matches.length,
     },
     urlAnalysis,
+    impersonation,
     riskSummary,
     recommendation,
     protectionActions,
