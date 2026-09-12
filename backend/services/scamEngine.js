@@ -67,37 +67,14 @@ function calculateRiskLevel(score) {
 function detectCategory(message) {
   const text = message.toLowerCase();
 
-  if (/\b(kyc|bank|banking|rbi|credit card|debit card)\b/.test(text)) {
-    return "Bank / KYC Scam";
-  }
-
-  if (/\b(upi|payment|pay|transfer|send money)\b/.test(text)) {
-    return "UPI / Payment Scam";
-  }
-
-  if (/\b(job|salary|registration fee|work from home|vacancy)\b/.test(text)) {
-    return "Job Scam";
-  }
-
-  if (/\b(cashback|reward|prize|winner|lottery|bonus|gift)\b/.test(text)) {
-    return "Reward / Cashback Scam";
-  }
-
-  if (/\b(investment|crypto|trading|double your money|guaranteed return)\b/.test(text)) {
-    return "Investment Scam";
-  }
-
-  if (/\b(delivery|courier|parcel|package)\b/.test(text)) {
-    return "Delivery Scam";
-  }
-
-  if (/\b(loan|instant loan|credit approval)\b/.test(text)) {
-    return "Loan Scam";
-  }
-
-  if (/\b(login|password|otp|verify account|unlock account|sign in)\b/.test(text)) {
-    return "Account Takeover Scam";
-  }
+  if (/\b(kyc|bank|banking|rbi|credit card|debit card)\b/.test(text)) return "Bank / KYC Scam";
+  if (/\b(upi|payment|pay|transfer|send money)\b/.test(text)) return "UPI / Payment Scam";
+  if (/\b(job|salary|registration fee|work from home|vacancy)\b/.test(text)) return "Job Scam";
+  if (/\b(cashback|reward|prize|winner|lottery|bonus|gift)\b/.test(text)) return "Reward / Cashback Scam";
+  if (/\b(investment|crypto|trading|double your money|guaranteed return)\b/.test(text)) return "Investment Scam";
+  if (/\b(delivery|courier|parcel|package)\b/.test(text)) return "Delivery Scam";
+  if (/\b(loan|instant loan|credit approval)\b/.test(text)) return "Loan Scam";
+  if (/\b(login|password|otp|verify account|unlock account|sign in)\b/.test(text)) return "Account Takeover Scam";
 
   return "Suspicious Communication";
 }
@@ -109,6 +86,14 @@ function extractUrls(message) {
   );
 }
 
+function addUrlIndicator(indicators, indicator) {
+  if (!indicators.some((item) => item.name === indicator.name)) {
+    indicators.push(indicator);
+    return indicator.points;
+  }
+  return 0;
+}
+
 function analyzeUrls(message) {
   const urls = extractUrls(message);
   const indicators = [];
@@ -116,69 +101,126 @@ function analyzeUrls(message) {
 
   for (const url of urls) {
     const lowerUrl = url.toLowerCase();
+    let parsedUrl = null;
+
+    try {
+      parsedUrl = new URL(url.startsWith("www.") ? `https://${url}` : url);
+    } catch {
+      risk += addUrlIndicator(indicators, {
+        name: "Malformed URL",
+        points: 15,
+        explanation: "The link could not be parsed as a normal web URL and should be treated cautiously.",
+      });
+    }
 
     if (lowerUrl.startsWith("http://")) {
-      indicators.push({
+      risk += addUrlIndicator(indicators, {
         name: "Unencrypted HTTP link",
         points: 15,
         explanation: "The link does not use HTTPS encryption.",
       });
-      risk += 15;
     }
 
     if (/https?:\/\/\d{1,3}(\.\d{1,3}){3}/i.test(url)) {
-      indicators.push({
+      risk += addUrlIndicator(indicators, {
         name: "IP-address URL",
         points: 20,
         explanation: "The link uses a raw IP address instead of a normal domain name.",
       });
-      risk += 20;
     }
 
     if (/\b(bit\.ly|tinyurl\.com|t\.co|is\.gd|cutt\.ly|rb\.gy)\b/i.test(url)) {
-      indicators.push({
+      risk += addUrlIndicator(indicators, {
         name: "URL shortener",
         points: 15,
         explanation: "The destination is hidden behind a URL-shortening service.",
       });
-      risk += 15;
     }
 
     if (url.length > 100) {
-      indicators.push({
+      risk += addUrlIndicator(indicators, {
         name: "Unusually long URL",
         points: 10,
         explanation: "The URL is unusually long and may contain tracking or obfuscated parameters.",
       });
-      risk += 10;
     }
 
     if (/login|verify|secure|update|kyc|account|wallet|payment|refund|bonus/i.test(lowerUrl)) {
-      indicators.push({
+      risk += addUrlIndicator(indicators, {
         name: "Sensitive-action keywords in URL",
         points: 15,
         explanation: "The URL contains keywords commonly associated with account or payment actions.",
       });
-      risk += 15;
     }
 
     const dotCount = (url.match(/\./g) || []).length;
     if (dotCount >= 4) {
-      indicators.push({
+      risk += addUrlIndicator(indicators, {
         name: "Excessive subdomains",
         points: 10,
         explanation: "The URL contains an unusually large number of domain levels.",
       });
-      risk += 10;
     }
 
     if (/@/.test(url)) {
-      indicators.push({
+      risk += addUrlIndicator(indicators, {
         name: "URL user-info marker",
         points: 20,
         explanation: "The URL contains an @ symbol, which can be used to make a destination look misleading.",
       });
-      risk += 20;
+    }
+
+    if (parsedUrl) {
+      const hostname = parsedUrl.hostname.toLowerCase();
+
+      if (hostname.includes("xn--")) {
+        risk += addUrlIndicator(indicators, {
+          name: "Punycode domain",
+          points: 20,
+          explanation: "The domain uses punycode, which can be used in look-alike or homograph domains.",
+        });
+      }
+
+      if (/%[0-9a-f]{2}/i.test(parsedUrl.pathname + parsedUrl.search)) {
+        risk += addUrlIndicator(indicators, {
+          name: "Encoded URL content",
+          points: 10,
+          explanation: "The URL contains percent-encoded content that can hide the visible structure of a destination.",
+        });
+      }
+
+      if (/\.{2,}|\/\/(?!$)/.test(parsedUrl.pathname)) {
+        risk += addUrlIndicator(indicators, {
+          name: "Unusual URL path structure",
+          points: 10,
+          explanation: "The URL path contains unusual repeated separators that may indicate obfuscation or redirect tricks.",
+        });
+      }
+
+      if (/[?&](redirect|url|next|return|continue|dest|destination)=/i.test(parsedUrl.search)) {
+        risk += addUrlIndicator(indicators, {
+          name: "Redirect parameter",
+          points: 15,
+          explanation: "The URL contains a parameter commonly used to redirect visitors to another destination.",
+        });
+      }
+
+      const suspiciousTlds = [".zip", ".mov", ".click", ".top", ".xyz", ".shop", ".buzz"];
+      if (suspiciousTlds.some((tld) => hostname.endsWith(tld))) {
+        risk += addUrlIndicator(indicators, {
+          name: "Higher-risk domain ending",
+          points: 10,
+          explanation: "The domain uses a TLD frequently seen in disposable, promotional, or abuse-prone domains. This is a warning signal, not proof of fraud.",
+        });
+      }
+
+      if (hostname.split(".").some((label) => label.length > 30)) {
+        risk += addUrlIndicator(indicators, {
+          name: "Abnormally long domain label",
+          points: 10,
+          explanation: "One part of the hostname is unusually long and may be used to disguise the destination.",
+        });
+      }
     }
   }
 
@@ -187,7 +229,7 @@ function analyzeUrls(message) {
     count: urls.length,
     urls,
     indicators,
-    risk: Math.min(risk, 50),
+    risk: Math.min(risk, 60),
   };
 }
 
