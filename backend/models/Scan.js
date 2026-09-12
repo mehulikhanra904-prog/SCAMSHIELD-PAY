@@ -19,6 +19,18 @@ const urlIndicatorSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const campaignAnalysisSchema = new mongoose.Schema(
+  {
+    detected: { type: Boolean, default: false },
+    campaignId: { type: String, default: "" },
+    label: { type: String, default: "" },
+    confidence: { type: Number, default: 0, min: 0, max: 100 },
+    matchedTactics: { type: [String], default: [] },
+    explanation: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const scanSchema = new mongoose.Schema(
   {
     message: {
@@ -57,6 +69,17 @@ const scanSchema = new mongoose.Schema(
       urls: { type: [String], default: [] },
       indicators: { type: [urlIndicatorSchema], default: [] },
       risk: { type: Number, default: 0, min: 0, max: 50 },
+    },
+    campaignAnalysis: {
+      type: campaignAnalysisSchema,
+      default: () => ({
+        detected: false,
+        campaignId: "",
+        label: "",
+        confidence: 0,
+        matchedTactics: [],
+        explanation: "",
+      }),
     },
     riskSummary: {
       type: String,
