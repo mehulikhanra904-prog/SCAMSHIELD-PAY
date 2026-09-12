@@ -1,9 +1,10 @@
+import mongoose from "mongoose";
 import Scan from "../models/Scan.js";
 import { analyzeMessage } from "../services/scamEngine.js";
 
 export const analyzeScan = async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message } = req.body ?? {};
 
     if (!message || typeof message !== "string") {
       return res.status(400).json({
@@ -28,7 +29,17 @@ export const analyzeScan = async (req, res) => {
       });
     }
 
+    // The actual scam analysis does not require MongoDB.
     const analysis = analyzeMessage(cleanedMessage);
+
+    // Save the scan when MongoDB is available.
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: "Scam analysis is ready, but MongoDB is not connected yet.",
+        database: "disconnected",
+      });
+    }
 
     const scan = await Scan.create({
       message: cleanedMessage,
