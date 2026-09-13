@@ -27,8 +27,6 @@ app.use(
         return callback(null, true);
       }
 
-      // Render/deployed frontend URLs can be added through CLIENT_URL.
-      // Allow non-browser/server-to-server requests without an Origin header.
       return callback(null, true);
     },
   })
@@ -52,7 +50,18 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Primary scan API route.
 app.use("/api/scan", scanRoutes);
+
+// Backward-compatible alias. Some frontend builds may still call /api/scans.
+app.use("/api/scans", scanRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
 
 app.use((err, req, res, next) => {
   console.error("API error:", err.message);
@@ -77,7 +86,6 @@ const connectMongoDB = async () => {
   console.log("MongoDB connected successfully");
 };
 
-// Render provides process.env.PORT. Local development falls back to 5000.
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 
