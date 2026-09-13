@@ -8,6 +8,7 @@ import "./campaign-detection.css";
 import "./threat-intelligence.css";
 import "./protection-mode.css";
 import "./scan-report.css";
+import "./emergency-response.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
