@@ -198,4 +198,117 @@
   .scan-history-header .example-button { width: 100%; }
   .scan-history-item { padding: 15px; }
   .history-risk { width: 64px; height: 64px; flex-basis: 64px; }
+  /* =========================================
+   MONEY PROTECTION
+========================================= */
+
+.money-protection-section {
+  width: 100%;
+  margin: 28px 0;
+}
+
+.money-protection-card {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 28px;
+  border-radius: 24px;
+  background: linear-gradient(
+    135deg,
+    rgba(79, 70, 229, 0.10),
+    rgba(59, 130, 246, 0.08)
+  );
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  box-shadow: 0 12px 35px rgba(30, 41, 59, 0.08);
+}
+
+.money-protection-icon {
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  font-size: 32px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 20px rgba(30, 41, 59, 0.08);
+}
+
+.money-protection-content {
+  flex: 1;
+}
+
+.money-protection-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1.4px;
+  opacity: 0.65;
+}
+
+.money-protection-content h2 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.money-protection-content p {
+  margin: 0;
+  max-width: 700px;
+  line-height: 1.6;
+  opacity: 0.72;
+}
+
+.money-protection-stats {
+  display: flex;
+  gap: 14px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+.money-protection-stats > div {
+  min-width: 130px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+}
+
+.money-protection-stats strong {
+  display: block;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.money-protection-stats span {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+/* MOBILE */
+
+@media (max-width: 700px) {
+  .money-protection-card {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px;
+  }
+
+  .money-protection-content h2 {
+    font-size: 20px;
+  }
+
+  .money-protection-stats {
+    width: 100%;
+  }
+
+  .money-protection-stats > div {
+    flex: 1;
+    min-width: 100px;
+  }
+}
 }
