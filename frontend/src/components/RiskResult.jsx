@@ -1,6 +1,7 @@
 import CampaignDetection from "./CampaignDetection";
 import ThreatIntelligence from "./ThreatIntelligence";
 import ProtectionMode from "./ProtectionMode";
+import ScanReport from "./ScanReport";
 
 function RiskResult({ result, onReset }) {
   if (!result) return <div className="empty-result"><div className="empty-icon">🛡️</div><h3>Your Security Report</h3><p>Your scam analysis will appear here after you scan a message.</p><div className="empty-line"><span></span>Waiting for message analysis</div></div>;
@@ -24,6 +25,7 @@ function RiskResult({ result, onReset }) {
     {hasUrls && <div className="url-intelligence"><div className="section-title-row"><div><span className="small-label">URL INTELLIGENCE</span><h3>What did we find in the link?</h3></div><span className="url-risk-badge">URL Risk: {urlAnalysis.risk}/60</span></div><div className="analyzed-url-count">🔗 {urlAnalysis.count} URL{urlAnalysis.count===1?"":"s"} analyzed</div>{urlAnalysis.indicators?.length > 0 ? <div className="url-indicators">{urlAnalysis.indicators.map((indicator,index)=><div className="url-indicator" key={index}><div className="url-indicator-icon">⚠️</div><div><strong>{indicator.name}</strong><p>{indicator.explanation}</p></div></div>)}</div> : <div className="url-safe-message">✓ No suspicious URL characteristics were detected.</div>}{urlAnalysis.urls?.length > 0 && <div className="url-list"><span className="url-list-label">ANALYZED LINKS</span>{urlAnalysis.urls.map((url,index)=><div className="url-item" key={index} title={url}>🔗 {url}</div>)}</div>}</div>}
     <div className="signals-section"><div className="section-title-row"><div><span className="small-label">DETECTION DETAILS</span><h3>Why was this flagged?</h3></div><span className="signal-count">{result.evidence?.totalSignals ?? result.signals?.length ?? 0} signals</span></div>{result.signals?.length > 0 ? <div className="signals-list">{result.signals.map((signal,index)=><div className="signal" key={index}><div className="signal-icon">⚠️</div><div className="signal-content"><div className="signal-title"><strong>{signal.name}</strong><span>+{signal.points}</span></div><p>{signal.explanation}</p></div></div>)}</div> : <div className="safe-message">✓ No major scam indicators were detected.</div>}</div>
     <div className="recommendation"><div className="recommendation-icon">🛡️</div><div><span className="small-label">RECOMMENDED ACTION</span><h3>Stay Safe</h3><p>{result.recommendation}</p></div></div>
+    <ScanReport result={result} />
     <button className="reset-button" onClick={onReset}><span>↻</span>Scan Another Message</button>
   </div>;
 }
