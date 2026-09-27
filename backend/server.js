@@ -72,11 +72,13 @@ app.use((err, req, res, next) => {
 });
 
 const connectMongoDB = async () => {
-  if (!process.env.MONGO_URI) {
+  // Accept the existing Render variable typo temporarily; MONGO_URI takes precedence.
+  const mongoUri = process.env.MONGO_URI || process.env.MONFO_URI;
+  if (!mongoUri) {
     throw new Error("MONGO_URI is missing from environment variables");
   }
 
-  await mongoose.connect(process.env.MONGO_URI, {
+  await mongoose.connect(mongoUri, {
     serverSelectionTimeoutMS: 10000,
     connectTimeoutMS: 10000,
     socketTimeoutMS: 45000,
